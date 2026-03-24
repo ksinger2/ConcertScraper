@@ -211,6 +211,7 @@ class VividSeatsScraper(BaseScraper):
 
     def get_listings(self, url: str, quantity: int = 2) -> list[ListingInfo]:
         """Get all available ticket listings."""
+        self._wait_for_rate_limit(url)
         final_url = self._build_url(url, quantity=quantity)
         html = self._fetch_html(final_url)
 
@@ -224,6 +225,7 @@ class VividSeatsScraper(BaseScraper):
 
     def get_event_info(self, url: str) -> dict[str, Any]:
         """Get event metadata."""
+        self._wait_for_rate_limit(url)
         html = self._fetch_html(url, use_browser=False)
 
         event_info, _ = self._extract_embedded_data(html)
@@ -235,6 +237,7 @@ class VividSeatsScraper(BaseScraper):
 
     def get_lowest_price(self, url: str, quantity: int = 2) -> ScraperResult:
         """Get the lowest price for an event."""
+        self._wait_for_rate_limit(url)
         final_url = self._build_url(url, quantity=quantity)
         html = self._fetch_html(final_url)
 

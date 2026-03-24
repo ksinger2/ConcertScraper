@@ -2,9 +2,12 @@
 Base scraper class that all site-specific scrapers inherit from.
 """
 
+import random
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Optional
+from urllib.parse import urlparse
 
 
 @dataclass
@@ -71,6 +74,48 @@ class BaseScraper(ABC):
 
     name: str = "base"
     all_in_pricing: bool = False  # True if prices include all fees
+
+    # Rate limiting settings (in seconds)
+    min_delay: float = 3.0  # Minimum delay between requests to same domain
+    max_delay: float = 7.0  # Maximum delay (randomized for natural behavior)
+
+    # Class-level tracking of last request time per domain
+    _last_request_time: dict[str, float] = {}
+
+    def _wait_for_rate_limit(self, url: str) -> None:
+        """
+        Wait if needed to respect rate limits.
+        Adds randomized delay between requests to the same domain.
+        """
+        domain = urlparse(url).netloc
+        current_time = time.time()
+
+        if domain in BaseScraper._last_request_time:
+            elapsed = current_time - BaseScraper._last_request_time[domain]
+            delay = random.uniform(self.min_delay, self.max_delay)
+
+            if elapsed < delay:
+                wait_time = delay - elapsed
+                time.sleep(wait_time)
+
+        BaseScraper._last_request_time[domain] = time.time()
+
+    @classmethod
+    def set_rate_limit(cls, min_delay: float = 3.0, max_delay: float = 7.0) -> None:
+        """
+        Configure rate limiting for all scrapers.
+
+        Args:
+            min_delay: Minimum seconds between requests to same domain
+            max_delay: Maximum seconds (randomized between min and max)
+        """
+        cls.min_delay = min_delay
+        cls.max_delay = max_delay
+
+    @classmethod
+    def reset_rate_limits(cls) -> None:
+        """Reset rate limit tracking (e.g., for a new session)."""
+        cls._last_request_time = {}
 
     @abstractmethod
     def get_lowest_price(self, url: str, quantity: int = 2) -> ScraperResult:
