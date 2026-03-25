@@ -94,23 +94,36 @@ class StubHubScraper(BaseScraper):
 
             page.goto(url, wait_until="domcontentloaded", timeout=60000)
 
-            # Wait for listings to appear - some events require clicking "Show more"
-            listings_found = False
-            try:
-                page.wait_for_selector('[data-listing-id]', timeout=8000)
-                listings_found = True
-            except:
-                pass
+            # Wait for page to stabilize
+            page.wait_for_timeout(2000)
 
-            # If no listings found, try clicking "Show more" button
-            if not listings_found:
+            # Try to find listings - may need multiple attempts
+            listings_found = False
+            for attempt in range(3):
+                # Check for existing listings
+                listing_count = page.locator('[data-listing-id]').count()
+                if listing_count > 0:
+                    listings_found = True
+                    break
+
+                # Try clicking "Show more" button to reveal listings
                 try:
                     show_more = page.locator("text=Show more")
                     if show_more.count() > 0:
                         show_more.first.click()
                         page.wait_for_timeout(2000)
-                        page.wait_for_selector('[data-listing-id]', timeout=8000)
-                        listings_found = True
+                except:
+                    pass
+
+                # Scroll to trigger lazy loading
+                page.evaluate("window.scrollTo(0, 500)")
+                page.wait_for_timeout(1500)
+
+                # Wait for listings to appear
+                try:
+                    page.wait_for_selector('[data-listing-id]', timeout=5000)
+                    listings_found = True
+                    break
                 except:
                     pass
 
@@ -118,7 +131,8 @@ class StubHubScraper(BaseScraper):
                 browser.close()
                 return []
 
-            page.wait_for_timeout(1000)
+            # Extra wait for all listings to load
+            page.wait_for_timeout(1500)
 
             # Extract listing data via JS
             # data-price may contain base price; also extract visible text price for all-in
